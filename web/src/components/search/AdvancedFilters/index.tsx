@@ -11,9 +11,12 @@ import { ButtonFilters, defaultFilters } from './filters.type';
 import { useForm } from 'react-hook-form';
 import Form from 'elements/Form';
 import { buttonColorStyle } from 'shared/buttonTypes';
-import { roundCoords } from 'shared/honeycomb.utils';
+import {
+  recalculateDensityMap,
+  roundCoords,
+} from 'shared/honeycomb.utils';
 import { GlobalState, store } from 'pages';
-import { UpdateFilters } from 'state/Explore';
+import { UpdateFilters, UpdateQueryFoundTags } from 'state/Explore';
 import router, { Router } from 'next/router';
 import { useRef } from 'store/Store';
 import { TagList } from 'elements/Fields/FieldTags';
@@ -22,25 +25,22 @@ import FieldMultiSelect from 'elements/Fields/FieldMultiSelect';
 import { uniqueArray } from 'shared/sys.helper';
 import MultiSelectOption from 'elements/MultiSelectOption';
 import { DropDownWhere } from 'elements/Dropdown/DropDownWhere';
-import { AdvancedFiltersCustomFields } from 'components/button/ButtonType/CustomFields/AdvancedFiltersCustomFields';
-
+import {
+  AdvancedFiltersCustomFields,
+  applyCustomFieldsFilters,
+} from 'components/button/ButtonType/CustomFields/AdvancedFiltersCustomFields';
+import { FieldCheckbox } from 'elements/Fields/FieldCheckbox';
+import { isPointWithinRadius } from 'geolib';
+import { Button } from 'shared/entities/button.entity';
+import _ from 'lodash';
 
 export default function AdvancedFilters({
   toggleShowFiltersForm,
   showFiltersForm,
   isHome = false,
+  filters,
+  isLoggedIn = false,
 }) {
-  const filters = useRef(
-    store,
-    (state: GlobalState) => state.explore.map.filters,
-    false
-  );
-
-  const queryFoundTags = useRef(
-    store,
-    (state: GlobalState) => state.explore.map.queryFoundTags,
-    false
-  );
   const [buttonTypes, setButtonTypes] = useState([]);
   useButtonTypes(setButtonTypes);
 
@@ -52,23 +52,23 @@ export default function AdvancedFilters({
     watch,
     reset,
   } = useForm({
-    defaultValues: filters
+    defaultValues: filters,
   });
 
   const clearFilters = (e) => {
     e.preventDefault();
-    reset(defaultFilters)
+    reset(defaultFilters);
     store.emit(new UpdateFilters(defaultFilters));
 
     toggleShowFiltersForm(false);
   };
   const onSubmit = (data) => {
-    const newFilters = { ...filters, ...data }
+    const newFilters = { ...filters, ...data };
     store.emit(new UpdateFilters(newFilters));
 
     if (isHome) {
       router.push('/Explore');
-    }else {
+    } else {
       toggleShowFiltersForm(false);
     }
   };
@@ -77,8 +77,8 @@ export default function AdvancedFilters({
   const center = watch('where.center');
   const radius = watch('where.radius');
   const helpButtonTypes = watch('helpButtonTypes');
-  const [tags, setTags] = useState([])
   const query = watch('query');
+  const onlyUserFollowing = watch('onlyUserFollowing');
 
   const handleSelectedPlace = (place) => {
     setValue('where.address', place.formatted);
@@ -87,7 +87,6 @@ export default function AdvancedFilters({
       place.geometry.lng,
     ]);
   };
-
 
   const setButtonTypeValue = (name, value) => {
     if (value) {
@@ -105,16 +104,10 @@ export default function AdvancedFilters({
     );
   };
 
+  useEffect(() => {
+    reset(filters);
+  }, [filters]);
 
-  useEffect(() => {
-    if(queryFoundTags)
-    {
-      setTags(() => queryFoundTags)
-    }
-  }, [queryFoundTags])
-  useEffect(() => {
-    reset(filters)
-  }, [filters])
   return (
     <>
       {showFiltersForm && (
@@ -174,14 +167,13 @@ export default function AdvancedFilters({
                 );
               })}
             </FieldMultiSelect>
-            
-              <DropDownWhere
-                placeholder={t('homeinfo.searchlocation')}
-                handleSelectedPlace={handleSelectedPlace}
-                address={address}
-                center={center}
-              />
-            
+
+            <DropDownWhere
+              placeholder={t('homeinfo.searchlocation')}
+              handleSelectedPlace={handleSelectedPlace}
+              address={address}
+              center={center}
+            />
 
             {center && (
               <div className="form__field">
@@ -200,10 +192,25 @@ export default function AdvancedFilters({
                 </div>
               </div>
             )}
-            
-            <AdvancedFiltersCustomFields buttonTypes={buttonTypes} register={register}/>
-            
-            <div className={ isHome ? 'filters__actions--home' : 'filters__actions'  }>
+            {isLoggedIn && 
+              <FieldCheckbox
+                name="onlyUserFollowing"
+                checked={onlyUserFollowing}
+                text={t('configuration.onlyUserFollowing')}
+                onChanged={(value) => {}}
+                {...register('onlyUserFollowing')}
+              />
+            }
+            <AdvancedFiltersCustomFields
+              buttonTypes={buttonTypes}
+              register={register}
+            />
+
+            <div
+              className={
+                isHome ? 'filters__actions--home' : 'filters__actions'
+              }
+            >
               <Btn
                 btnType={BtnType.link}
                 caption={t('common.reset')}
@@ -224,3 +231,134 @@ export default function AdvancedFilters({
     </>
   );
 }
+
+export const applyFilters = ({
+  filters,
+  cachedHexagons,
+  tags,
+  setTags,
+  buttonTypes,
+  usersFollowing,
+}) => {
+  const applyButtonTypesFilter = (button, buttonTypes) => {
+    if (buttonTypes.length == 0) {
+      return true;
+    }
+    if (buttonTypes.length > 0) {
+      return buttonTypes.indexOf(button.type) > -1;
+    }
+    return false;
+  };
+
+  const applyQueryFilter = (button, query) => {
+    if (query && query.length > 0) {
+      return (
+        button.title.indexOf(query) > -1 ||
+        button.description.indexOf(query) > -1
+      );
+    }
+    return true;
+  };
+
+  const applyWhereFilter = (button: Button, where) => {
+    if (where.center && where.radius) {
+      return isPointWithinRadius(
+        { latitude: button.latitude, longitude: button.longitude },
+        { latitude: where.center[0], longitude: where.center[1] },
+        where.radius * 1000,
+      );
+    }
+    return true;
+  };
+
+  const applyTagFilters = (button: Button, tags: string[]) => {
+    if (tags.length == 0) {
+      return true;
+    }
+    if (tags.length > 0) {
+      const tagsFound = _.intersection(tags, button.tags);
+      if (tagsFound.length > 0) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const applyUsersFollowing = (button: Button, usersFollowing) => {
+    if (usersFollowing.length > 0) {
+      const usersIdFollowing = usersFollowing.map((user) => user.id)
+      console.log(usersIdFollowing)
+      console.log(button.owner.id)
+      if (usersIdFollowing.indexOf(button.owner.id) > -1) {
+        return true;
+      }
+    }
+    return false;
+  };
+  const findMoreTags = (button: Button, queryTags) => {
+    const tagsFound = _.intersection(queryTags, button.tags);
+    if (tagsFound.length > 0) {
+      setTags((prevTags) => _.union(prevTags, tagsFound));
+    }
+  };
+
+  let queryTags = filters.query
+    .split(' ')
+    .filter((value) => value.length > 0);
+
+  const res = cachedHexagons.reduce(
+    ({ filteredButtons, filteredHexagons }, hexagonCached) => {
+      const moreButtons = hexagonCached.buttons.filter(
+        (button: Button) => {
+          if (
+            filters.onlyUserFollowing &&
+            !applyUsersFollowing(button, usersFollowing)
+          ) {
+            return false;
+          }
+          if (
+            !applyButtonTypesFilter(button, filters.helpButtonTypes)
+          ) {
+            return false;
+          }
+
+          findMoreTags(button, queryTags);
+          if (!applyTagFilters(button, tags)) {
+            return false;
+          }
+
+          // remove tags from query string, so it won't fail to search string
+          let query = filters.query;
+          tags.forEach((tag) => (query = query.replace(tag, '')));
+          if (!applyQueryFilter(button, query)) {
+            return false;
+          }
+          if (!applyWhereFilter(button, filters.where)) {
+            return false;
+          }
+
+          if (
+            !applyCustomFieldsFilters(button, filters, buttonTypes)
+          ) {
+            return false;
+          }
+          return true;
+        },
+      );
+
+      filteredHexagons.push({
+        ...hexagonCached,
+        buttons: moreButtons,
+      });
+      return {
+        filteredButtons: filteredButtons.concat(moreButtons),
+        filteredHexagons: filteredHexagons,
+      };
+    },
+    { filteredButtons: [], filteredHexagons: [] },
+  );
+  return {
+    filteredButtons: res.filteredButtons,
+    filteredHexagons: recalculateDensityMap(res.filteredHexagons),
+  };
+};

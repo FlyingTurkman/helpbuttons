@@ -1,5 +1,6 @@
 //Users buttons an profile info URL
 import CardProfile, {
+  CardProfileMenu,
   LinkAdminButton,
 } from 'components/user/CardProfile';
 
@@ -74,7 +75,9 @@ export default function Profile() {
     <>
       <div className="body__content">
         <div className="card-profile__container">
-          {userProfile && <CardProfile user={userProfile} showAdminOptions={loggedInUser.role == Role.admin}/>}
+          {userProfile && <>
+          <CardProfileMenu user={userProfile} showAdminOptions={loggedInUser.role == Role.admin} isFollowing={loggedInUser.following.filter((userFollowing) => userFollowing.id == userProfile.id).length > 0}/>
+          <CardProfile user={userProfile}/></>}
           {userProfile?.role == Role.admin && adminButtonId && (
             <LinkAdminButton adminButtonId={adminButtonId} />
           )}

@@ -53,7 +53,11 @@ export default function HomeInfo({
     store,
     (state: GlobalState) => state.loggedInUser,
   );
-
+  const filters = useStore(
+    store,
+    (state: GlobalState) => state.explore.map.filters,
+    false
+  );
   const [navigatorCoordinates, setNavigatorCoordinates] =
     useState(null);
 
@@ -70,11 +74,13 @@ export default function HomeInfo({
           toggleShowFiltersForm={toggleShowFiltersForm}
           totalNetworkButtonsCount={selectedNetwork.buttonCount}
           isHome={true}
+          hexagonClicked={false}
         />
         <AdvancedFilters
           showFiltersForm={showFiltersForm}
           toggleShowFiltersForm={toggleShowFiltersForm}
           isHome={true}
+          filters={filters}
         />
       </div>
       <div

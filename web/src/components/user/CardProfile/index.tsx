@@ -1,100 +1,93 @@
 //Profile Card with the the info displayed by the user in Profile page. It shows different options depending if it's other user profile or your profile when logged.
-import {  IoHandLeftOutline, IoHeartOutline, IoPersonOutline, IoRibbonOutline } from "react-icons/io5";
+import {
+  IoHandLeftOutline,
+  IoHeartOutline,
+  IoPersonOutline,
+  IoRibbonOutline,
+} from 'react-icons/io5';
 import { Link } from 'elements/Link';
-import Btn, {ContentAlignment, BtnType, IconType} from 'elements/Btn'
+import Btn, {
+  IconType,
+} from 'elements/Btn';
 
 import UserAvatar from '../components';
 import { getHostname } from 'shared/sys.helper';
 import t from 'i18n';
-import { store } from "pages";
-import { UpdateRole } from "state/Users";
-import { alertService } from "services/Alert";
-import router from "next/router";
-import { CardSubmenu, CardSubmenuOption } from "components/card/CardSubmenu";
-import { Role } from "shared/types/roles";
+import { store } from 'pages';
+import { UpdateRole } from 'state/Users';
+import { alertService } from 'services/Alert';
+import router from 'next/router';
+import {
+  CardSubmenu,
+  CardSubmenuOption,
+} from 'components/card/CardSubmenu';
+import { Role } from 'shared/types/roles';
+import { UserFollow, UserUnfollow } from 'state/Social';
 
-
-export default function CardProfile({ user, showAdminOptions }) {
-
+export default function CardProfile({ user }) {
   return (
     <>
-    {showAdminOptions && 
-        <ProfileAdminOptions user={user} />
-      }
-        <div className="card-profile__container-avatar-content">
+      <div className="card-profile__container-avatar-content">
+        <figure className="card-profile__avatar-container avatar">
+          <div className="avatar-big">
+            <UserAvatar user={user} />
 
-            <figure className="card-profile__avatar-container avatar">
+            {/* <ImageWrapper imageType={ImageType.avatar} src={user.avatar} alt="avatar"/> */}
+          </div>
+        </figure>
 
-              <div className="avatar-big">
-                <UserAvatar user={user}/>
+        <div className="card-profile__content">
+          <div className="card-profile__avatar-container-name">
+            <p className="card-profile__name">{user.name}</p>
+            <span className="card-profile__username">
+              {user.username}@{getHostname()}
+            </span>
+          </div>
 
-                {/* <ImageWrapper imageType={ImageType.avatar} src={user.avatar} alt="avatar"/> */}
+          {/* {t('user.created_date')}: {readableTimeLeftToDate(user.created_at)} */}
 
+          <figure className="card-profile__rating grid-three">
+            <div className="paragraph grid-three__column">
+              <div className="btn-circle__icon">
+                <IoHeartOutline />
               </div>
-
-            </figure>
-
-            <div className="card-profile__content">
-            
-              <div className="card-profile__avatar-container-name">
-
-                <p className="card-profile__name">{user.name}</p>
-                <span className="card-profile__username">{ user.username }@{getHostname()}</span>
-                
-              </div>
-
-              {/* {t('user.created_date')}: {readableTimeLeftToDate(user.created_at)} */}
-    
-              <figure className="card-profile__rating grid-three">
-
-                <div className="paragraph grid-three__column">
-                  
-                  <div className="btn-circle__icon">
-                    <IoHeartOutline />
-                  </div>
-                  {user.buttonCount}
-                </div>
-                <div className="paragraph grid-three__column">
-                  <div className="btn-circle__icon">
-                    <IoPersonOutline />
-                  </div>
-                  {user.postCount}
-                </div>
-                <div className="paragraph grid-three__column">
-                  <div className="btn-circle__icon">
-                    <IoRibbonOutline />
-                  </div>
-                  {user.commentCount}
-                </div>
-
-              </figure>
-
+              {user.buttonCount}
             </div>
+            <div className="paragraph grid-three__column">
+              <div className="btn-circle__icon">
+                <IoPersonOutline />
+              </div>
+              {user.postCount}
+            </div>
+            <div className="paragraph grid-three__column">
+              <div className="btn-circle__icon">
+                <IoRibbonOutline />
+              </div>
+              {user.commentCount}
+            </div>
+          </figure>
+        </div>
+      </div>
 
+      <div className="card-profile__data">
+        <div className="card-profile__tags grid-one__column-mid-element">
+          {/* <div className="hashtag">{t('user.tags')}</div> */}
+        </div>
+        <div className="card-profile__description grid-one__column-mid-element">
+          {user.description}
         </div>
 
-        <div className="card-profile__data">
-
-            <div className="card-profile__tags grid-one__column-mid-element">
-              {/* <div className="hashtag">{t('user.tags')}</div> */}
-            </div>
-            <div className="card-profile__description grid-one__column-mid-element">
-               {user.description}
-            </div>
-
-            {/* <div className="card-profile__phone grid-one__column-mid-element">
+        {/* <div className="card-profile__phone grid-one__column-mid-element">
               TODO: 
               - place
 
             </div> */}
-
-        </div>
+      </div>
     </>
   );
 }
 
-
-export function LinkAdminButton({adminButtonId}) {
+export function LinkAdminButton({ adminButtonId }) {
   return (
     <div>
       <Link href={`/ButtonFile/${adminButtonId}`}>
@@ -116,7 +109,7 @@ function ProfileAdminOptions({ user }) {
         newRole,
         () => {
           alertService.info('Done.');
-          router.reload()
+          router.reload();
         },
         () => {
           alertService.error('Error');
@@ -171,5 +164,72 @@ function ProfileAdminOptions({ user }) {
     }
   };
 
-  return <CardSubmenu>{user && getOptions(user)}</CardSubmenu>;
+  return <>{user && getOptions(user)}</>;
+}
+
+function FollowingOptions({ user, isFollowing }) {
+  const userFollow = (userId) => {
+    store.emit(
+      new UserFollow(
+        userId,
+        () => {
+          alertService.info('Done.');
+        },
+        () => {
+          alertService.error('Error');
+        },
+      ),
+    );
+  };
+
+  const userUnfollow = (userId) => {
+    store.emit(
+      new UserUnfollow(
+        userId,
+        () => {
+          alertService.info('Done.');
+        },
+        () => {
+          alertService.error('Error');
+        },
+      ),
+    );
+  };
+
+  const getOptions = (user, isFollowing) => {
+    // check if user is in follow list...   
+    if (!isFollowing) {
+      return (
+        <>
+          <CardSubmenuOption
+            onClick={() => {
+              userFollow(user.id);
+            }}
+            label={t('user.follow')}
+          />
+        </>
+      );
+    } else {
+      return (
+        <>
+          <CardSubmenuOption
+            onClick={() => {
+              userUnfollow(user.id);
+            }}
+            label={t('user.unfollow')}
+          />
+        </>
+      );
+    }
+  };
+
+  return <>{user && getOptions(user, isFollowing)}</>;
+}
+export function CardProfileMenu({ user, showAdminOptions, isFollowing }) {
+  return (
+    <CardSubmenu>
+      {showAdminOptions && <ProfileAdminOptions user={user} />}
+      <FollowingOptions user={user} isFollowing={isFollowing}/>
+    </CardSubmenu>
+  );
 }
