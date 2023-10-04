@@ -56,4 +56,16 @@ export class UserController {
   {
     return await this.userService.moderationList()
   }
+
+  @OnlyRegistered()
+  @Post('/follow/:userId')
+  async follow(@CurrentUser() currentUser: User, @Param('userId') userId: string) {
+    return await this.userService.follow(currentUser, userId);
+  }
+
+  @OnlyRegistered()
+  @Post('/unfollow/:userId')
+  async unfollow(@CurrentUser() currentUser: User, @Param('userId') userId: string) {
+    return await this.userService.unfollow(currentUser, userId);
+  }
 }

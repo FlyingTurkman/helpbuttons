@@ -1,37 +1,28 @@
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { ConfigType } from '@nestjs/config';
-import { Transactional } from 'typeorm-transactional-cls-hooked';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { LoginRequestDto, SignupRequestDto } from './auth.dto';
+import { SignupRequestDto } from './auth.dto';
 import { UserService } from '../user/user.service';
 import {
   dbIdGenerator,
   publicNanoidGenerator,
 } from '@src/shared/helpers/nanoid-generator.helper';
 import { UserCredentialService } from '../user-credential/user-credential.service';
-import { NodeEnv } from '@src/shared/types';
 import { MailService } from '../mail/mail.service';
-import { ExtractJwt } from 'passport-jwt';
-import { catchError } from 'rxjs';
 import { User } from '../user/user.entity';
 import { StorageService } from '../storage/storage.service';
-import { ValidationException } from '@src/shared/middlewares/errors/validation-filter.middleware';
-import { getManager } from 'typeorm';
 import { Role } from '@src/shared/types/roles';
 import { UserCredential } from '../user-credential/user-credential.entity';
 import {
   checkHash,
   generateHash,
 } from '@src/shared/helpers/generate-hash.helper';
-import { UserUpdateDto } from '../user/user.dto';
+import { UserCreateDto, UserUpdateDto } from '../user/user.dto';
 import { CustomHttpException } from '@src/shared/middlewares/errors/custom-http-exception.middleware';
 import { ErrorName } from '@src/shared/types/error.list';
-import { isImageData } from '@src/shared/helpers/imageIsFile';
-import { ValidationError } from 'class-validator';
 import { configFileName } from '@src/shared/helpers/config-name.const';
 import { NetworkService } from '../network/network.service';
 import { InviteService } from '../invite/invite.service';
-import { Exception } from 'handlebars';
+import { isImageData } from '@src/shared/helpers/imageIsFile';
 const config = require(`../../..${configFileName}`);
 @Injectable()
 export class AuthService {
@@ -139,7 +130,7 @@ export class AuthService {
     });
   }
 
-  private sendLoginToken(user: User, sendActivation = false) {
+  private sendLoginToken(user, sendActivation = false) {
     const activationUrl: string = `${config.hostName}/LoginClick/${user.verificationToken}`;
 
     if (!sendActivation) {
@@ -195,14 +186,14 @@ export class AuthService {
     return accesstoken;
   }
   async getCurrentUser(userId) {
-    return this.userService.findById(userId);
+    return this.userService.findCurrentUser(userId);
   }
 
-  async update(data: UserUpdateDto, currentUser) {
-    if (data.set_new_password) {
+  async update(user: UserUpdateDto, currentUser) {
+    if (user.set_new_password) {
       // save new credentials
       if (
-        !(await checkHash(data.password_new, currentUser.password))
+        !(await checkHash(user.password_new, currentUser.password))
       ) {
         throw new CustomHttpException(
           ErrorName.CurrentPasswordWontMatch,
@@ -212,17 +203,17 @@ export class AuthService {
 
     let newUser = {
       avatar: null,
-      email: data.email,
-      name: data.name,
-      description: data.description,
-      locale: data.locale,
-      receiveNotifications: data.receiveNotifications
+      email: user.email,
+      name: user.name,
+      description: user.description,
+      locale: user.locale,
+      receiveNotifications: user.receiveNotifications
     };
 
-    if (isImageData(data.avatar)) {
+    if (isImageData(user.avatar)) {
       try {
         newUser.avatar = await this.storageService.newImage64(
-          data.avatar,
+          user.avatar,
         );
       } catch (err) {
         console.log(`avatar: ${err.message}`);
@@ -231,10 +222,10 @@ export class AuthService {
     return this.userService
       .update(currentUser.id, newUser)
       .then(() => {
-        if (data.set_new_password) {
+        if (user.set_new_password) {
           return this.createUserCredential(
             currentUser.id,
-            data.password_new,
+            user.password_new,
           ).then(() => true);
         }
         return Promise.resolve(true);

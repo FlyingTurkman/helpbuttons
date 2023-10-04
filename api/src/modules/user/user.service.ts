@@ -8,6 +8,7 @@ import { MailService } from '../mail/mail.service';
 import { ActivityEventName } from '@src/shared/types/activity.list';
 import { OnEvent } from '@nestjs/event-emitter';
 import translate from '@src/shared/helpers/i18n.helper';
+import { UserCreateDto } from './user.dto';
 
 @Injectable()
 export class UserService {
@@ -19,7 +20,7 @@ export class UserService {
     private readonly entityManager: EntityManager,
   ) {}
 
-  async createUser(user: User) {
+  async createUser(user: UserCreateDto) {
     return this.userRepository.insert([user]);
   }
 
@@ -30,6 +31,11 @@ export class UserService {
       },
     });
     return user ? true : false;
+  }
+
+  async findCurrentUser(userId: string) {
+    return await this.userRepository.findOne({ where: { id: userId }, relations: ['following'],
+  });
   }
 
   async findById(id: string) {
@@ -159,4 +165,16 @@ export class UserService {
       blocked: await this.userRepository.find({where: {role: Role.blocked}}),
     } 
   }
+
+
+  async follow(currentUser: User, userToFollowId: string){
+    const userToFollow : User = await this.findById(userToFollowId)
+    let userUpdateFollowers = {id: currentUser.id, following: [...currentUser.following, userToFollow]}
+    return await this.userRepository.save(userUpdateFollowers)
+  }
+
+  async unfollow(currentUser: User, userToFollowId: string){
+    return await this.entityManager.query(`delete from user_following_user where "userId_1" = '${currentUser.id}' AND "userId_2" = '${userToFollowId}'`);
+  }
+
 }
