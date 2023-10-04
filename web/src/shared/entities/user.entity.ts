@@ -1,7 +1,7 @@
 import { BaseEntity } from '@src/shared/types/base.entity';
 import { Role } from '@src/shared/types/roles';
 import { Exclude, Expose } from 'class-transformer';
-import { Column, Entity, OneToOne, PrimaryColumn } from 'typeorm';
+import { Column, Entity, JoinTable, ManyToMany, OneToOne, PrimaryColumn } from 'typeorm';
 
 import { UserCredential } from '../user-credential/user-credential.entity';
 
@@ -90,6 +90,11 @@ export class User extends BaseEntity {
 
   @Column({default: true})
   receiveNotifications: boolean;
+
+  @Expose()
+  @ManyToMany(() => User)
+  @JoinTable()
+  following: User[]
 }
 
 export interface UserRelations {

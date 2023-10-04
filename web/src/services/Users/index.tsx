@@ -86,4 +86,11 @@ export class UserService {
   public static moderationList(): Observable<any> {
     return httpService.get<any>(`/users/moderationList`);
   }
+
+  public static follow(userId : string): Observable<any> {
+    return httpService.post<any>(`/users/follow/${userId}`);
+  }
+  public static unfollow(userId : string): Observable<any> {
+    return httpService.post<any>(`/users/unfollow/${userId}`);
+  }
 }

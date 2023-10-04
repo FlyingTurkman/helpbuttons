@@ -1,10 +1,10 @@
 import { Column } from 'typeorm';
 import { User } from './user.entity';
 import { IsBoolean, IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { PartialType } from '@nestjs/swagger';
 
 export class UserIdentification extends User {}
-
-export class UserUpdateDto {
+export class UserCreateDto implements Partial<User>{
   @IsEmail()
   email: string;
 
@@ -34,3 +34,6 @@ export class UserUpdateDto {
 
   inviteCode?: string;  
 }
+
+
+export class UserUpdateDto extends PartialType(UserCreateDto) {}
